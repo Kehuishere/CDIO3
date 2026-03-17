@@ -1,4 +1,4 @@
-async function ask(){
+async function ask(mode){
 
     const q = document.getElementById("q").value
     const chat = document.getElementById("chat-box")
@@ -22,13 +22,14 @@ async function ask(){
             "Content-Type":"application/json"
         },
         body:JSON.stringify({
-            question:q
+            question:q,
+            mode:mode
         })
     })
 
     const data = await res.json()
 
-    typingEffect(botMsg, data.answer)
+    typingEffect(botMsg, data.answer.answer)
 
     chat.scrollTop = chat.scrollHeight
 }

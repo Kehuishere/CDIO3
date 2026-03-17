@@ -2,6 +2,7 @@ import chromadb
 from chromadb.utils import embedding_functions
 
 from app.rag.answer_generator import generate_answer
+from app.rag.gemini_api import ask_gemini
 
 CHROMA_PATH = "../chroma"
 COLLECTION_NAME = "KienthucforRag"
@@ -18,42 +19,42 @@ collection = client.get_collection(
 )
 
 
-def chat(user_input: str):
+def chat(user_input: str, mode: str):
+    # ===== MODE AI =====
+    if mode == "ai":
+        answer = ask_gemini(user_input)
+        return {
+            "answer": answer,
+            "related_questions": []
+        }
 
-    results = collection.query(
+    # ===== SEARCH KNOWLEDGE =====
+    knowledge_results = collection.query(
         query_texts=[user_input],
-        n_results=10,
+        n_results=5,
         include=["documents", "metadatas", "distances"]
     )
 
-    docs = []
+    knowledge_docs = []
 
-    for i in range(len(results["documents"][0])):
-        docs.append({
-            "content": results["documents"][0][i],
-            "metadata": results["metadatas"][0][i],
-            "distance": results["distances"][0][i]
+    for i in range(len(knowledge_results["documents"][0])):
+        knowledge_docs.append({
+            "content": knowledge_results["documents"][0][i],
+            "metadata": knowledge_results["metadatas"][0][i],
+            "distance": knowledge_results["distances"][0][i]
         })
 
-    # Debug retrieval
-    print("\n===== RETRIEVE RESULT =====")
-    for d in docs:
-        print("Distance:", d["distance"])
-        print("Content:", d["content"][:100])
-        print("---------------------")
-
-    # Sắp xếp theo distance 
-    ranked_docs = sorted(docs, key=lambda x: x["distance"])
-
-    print("\n===== AFTER SORT =====")
-    for d in ranked_docs[:5]:
-        print("Distance:", d["distance"])
-        print("Content:", d["content"])
-        print("---------------------")
-
-    # lấy top context
-    top_docs = ranked_docs[:5]
-
-    answer = generate_answer(user_input, top_docs)
-
-    return answer
+    ranked_knowledge = sorted(knowledge_docs, key=lambda x: x["distance"])
+    top_knowledge = ranked_knowledge[:5]
+    answer = generate_answer(user_input, top_knowledge)
+    # ===== GENERATE ANSWER =====
+    related_questions = []
+    for i in ranked_knowledge:
+        print(i["distance"], " | ", i["content"][:60])
+    for doc in knowledge_results["documents"][0][:5]:
+        first_line = doc.split("\n")[0]
+        related_questions.append(first_line)
+    return {
+    "answer": answer,
+    "related_questions": related_questions
+}
